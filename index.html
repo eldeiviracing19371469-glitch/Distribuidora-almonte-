@@ -513,7 +513,7 @@ button {
   <label class="photo-picker" id="photo-picker">
     <span id="photo-placeholder">📷 Toca para tomar o elegir una foto</span>
     <img id="photo-preview" style="display:none;">
-    <input type="file" accept="image/*" capture="environment" class="hidden-file-input" id="photo-input">
+    <input type="file" accept="image/*" class="hidden-file-input" id="photo-input">
   </label>
 
   <div class="field">
@@ -703,7 +703,8 @@ inputCosto.addEventListener("input", updateComputedPrice);
 inputMargen.addEventListener("input", updateComputedPrice);
 
 // ---------- Foto ----------
-photoPicker.addEventListener("click", () => photoInput.click());
+// (el <label> ya abre el selector de fotos automáticamente al tocarlo,
+// no hace falta disparar el click por JS también)
 photoInput.addEventListener("change", () => {
   const file = photoInput.files[0];
   if (!file) return;
