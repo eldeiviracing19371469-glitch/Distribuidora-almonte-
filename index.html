@@ -316,6 +316,115 @@ button {
   letter-spacing: 0.04em;
 }
 
+.client-card .item-photo {
+  border-radius: 50%;
+}
+.client-card .item-photo.placeholder {
+  border-radius: 50%;
+}
+.client-card .item-meta {
+  font-family: var(--font-body);
+}
+
+.client-phone-link {
+  color: var(--teal);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--teal) 40%, transparent);
+}
+
+.account-section {
+  margin-bottom: 6px;
+}
+
+.account-actions {
+  display: flex;
+  gap: 10px;
+  margin: -8px 0 16px;
+}
+
+.account-btn {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-btn.debe { color: var(--danger); }
+.account-btn.abono { color: var(--teal); }
+
+.movimientos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.movimiento-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.movimiento-row .mv-label { color: var(--text-muted); }
+.movimiento-row .mv-amount { font-family: var(--font-mono); font-weight: 600; }
+.movimiento-row .mv-amount.cargo { color: var(--danger); }
+.movimiento-row .mv-amount.abono { color: var(--teal); }
+
+.movimientos-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 10px 0;
+}
+
+/* ---------- Menú de llamada / WhatsApp ---------- */
+.phone-actions {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  border-radius: 24px 24px 0 0;
+  padding: 10px 20px calc(24px + env(safe-area-inset-bottom));
+  z-index: 51;
+  transform: translateY(100%);
+  transition: transform 0.25s ease;
+}
+.phone-actions.open { transform: translateY(0); }
+
+.phone-actions-name {
+  text-align: center;
+  font-weight: 600;
+  font-size: 15px;
+  margin: 4px 0 16px;
+}
+
+.phone-action-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.phone-action-btn.call { background: var(--teal); color: #0d1712; }
+.phone-action-btn.whatsapp { background: #25D366; color: #06210F; }
+.phone-action-btn.cancel { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+
 /* ---------- Lightbox (visor de foto) ---------- */
 .lightbox {
   position: fixed;
@@ -649,7 +758,28 @@ button {
   </div>
 </main>
 
-<button class="fab" id="fab-add" aria-label="Agregar artículo">+</button>
+<button class="fab" id="fab-add" aria-label="Agregar">+</button>
+
+<!-- ===== Clientes ===== -->
+<main id="view-clientes" style="display:none;">
+  <div class="topbar">
+    <div>
+      <h1>Clientes</h1>
+      <div class="subtitle" id="client-count">0 clientes</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input id="client-search-input" class="search-input" type="search" placeholder="Buscar cliente…">
+  </div>
+
+  <div id="client-list" class="item-list"></div>
+
+  <div id="client-empty-state" class="empty-state" style="display:none;">
+    <div class="empty-icon">👤</div>
+    <div>Aún no tienes clientes.<br>Toca el botón + para agregar el primero.</div>
+  </div>
+</main>
 
 <!-- ===== Tabbar ===== -->
 <nav class="tabbar">
@@ -723,6 +853,67 @@ button {
   <button class="delete-btn" id="delete-btn" style="display:none;">Eliminar artículo</button>
 </div>
 
+<!-- ===== Sheet: agregar / editar cliente ===== -->
+<div class="sheet-backdrop" id="client-sheet-backdrop"></div>
+<div class="sheet" id="client-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <h2 id="client-sheet-title">Nuevo cliente</h2>
+    <button class="link-btn" id="client-sheet-close">Cerrar</button>
+  </div>
+
+  <label class="photo-picker" id="client-photo-picker">
+    <span id="client-photo-placeholder">🪪 Toca para tomar o elegir foto de la cédula</span>
+    <img id="client-photo-preview" style="display:none;">
+    <input type="file" accept="image/*" class="hidden-file-input" id="client-photo-input">
+  </label>
+
+  <div class="field">
+    <label for="input-cliente-nombre">Nombre completo</label>
+    <input id="input-cliente-nombre" type="text" placeholder="Ej: Juan Pérez">
+  </div>
+
+  <div class="field">
+    <label for="input-cliente-telefono">Teléfono</label>
+    <input id="input-cliente-telefono" type="tel" placeholder="Ej: 809-555-1234">
+  </div>
+
+  <div class="field">
+    <label for="input-cliente-correo">Correo electrónico</label>
+    <input id="input-cliente-correo" type="email" placeholder="Ej: juan@correo.com">
+  </div>
+
+  <div class="field">
+    <label for="input-cliente-direccion">Dirección</label>
+    <input id="input-cliente-direccion" type="text" placeholder="Ej: Calle Duarte #12, Santiago">
+  </div>
+
+  <div class="account-section" id="account-section" style="display:none;">
+    <div class="computed-price">
+      <span class="label">Balance pendiente</span>
+      <span class="value" id="client-balance-value">RD$0.00</span>
+    </div>
+    <div class="account-actions">
+      <button class="account-btn debe" id="btn-add-cargo">+ Debe</button>
+      <button class="account-btn abono" id="btn-add-abono">+ Abonó</button>
+    </div>
+    <div id="movimientos-list" class="movimientos-list"></div>
+  </div>
+
+  <button class="save-btn" id="client-save-btn">Guardar cliente</button>
+  <button class="delete-btn" id="client-delete-btn" style="display:none;">Eliminar cliente</button>
+</div>
+
+<!-- ===== Menú de llamada / WhatsApp ===== -->
+<div class="sheet-backdrop" id="phone-actions-backdrop"></div>
+<div class="phone-actions" id="phone-actions">
+  <div class="sheet-handle"></div>
+  <div class="phone-actions-name" id="phone-actions-name"></div>
+  <a class="phone-action-btn call" id="phone-action-call" href="#">📞 Llamar</a>
+  <a class="phone-action-btn whatsapp" id="phone-action-whatsapp" href="#" target="_blank">💬 WhatsApp</a>
+  <button class="phone-action-btn cancel" id="phone-action-cancel">Cancelar</button>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ===== Visor de foto a pantalla completa ===== -->
@@ -756,18 +947,24 @@ export const storage = getStorage(app);
 
 import {
   collection, addDoc, updateDoc, deleteDoc, doc,
-  onSnapshot, serverTimestamp
+  onSnapshot, serverTimestamp, increment, query, orderBy, limit
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   ref, uploadBytes, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 
 // ---------- Estado ----------
+let currentView = "inventario"; // "inventario" | "clientes"
 let articulos = [];
 let editingId = null;
 let selectedFile = null;
 let searchTerm = "";
 let viewMode = "list"; // "list" | "grid"
+
+let clientes = [];
+let editingClientId = null;
+let selectedClientFile = null;
+let clientSearchTerm = "";
 
 // ---------- Elementos ----------
 const itemList = document.getElementById("item-list");
@@ -782,6 +979,45 @@ const lightboxClose = document.getElementById("lightbox-close");
 const lightboxPrev = document.getElementById("lightbox-prev");
 const lightboxNext = document.getElementById("lightbox-next");
 const lightboxCaption = document.getElementById("lightbox-caption");
+
+// Clientes
+const viewInventario = document.getElementById("view-inventario");
+const viewClientes = document.getElementById("view-clientes");
+const clientList = document.getElementById("client-list");
+const clientEmptyState = document.getElementById("client-empty-state");
+const clientCount = document.getElementById("client-count");
+const clientSearchInput = document.getElementById("client-search-input");
+
+const clientSheet = document.getElementById("client-sheet");
+const clientSheetBackdrop = document.getElementById("client-sheet-backdrop");
+const clientSheetTitle = document.getElementById("client-sheet-title");
+const clientSheetClose = document.getElementById("client-sheet-close");
+
+const clientPhotoPicker = document.getElementById("client-photo-picker");
+const clientPhotoInput = document.getElementById("client-photo-input");
+const clientPhotoPreview = document.getElementById("client-photo-preview");
+const clientPhotoPlaceholder = document.getElementById("client-photo-placeholder");
+
+const inputClienteNombre = document.getElementById("input-cliente-nombre");
+const inputClienteTelefono = document.getElementById("input-cliente-telefono");
+const inputClienteCorreo = document.getElementById("input-cliente-correo");
+const inputClienteDireccion = document.getElementById("input-cliente-direccion");
+
+const clientSaveBtn = document.getElementById("client-save-btn");
+const clientDeleteBtn = document.getElementById("client-delete-btn");
+
+const accountSection = document.getElementById("account-section");
+const clientBalanceValue = document.getElementById("client-balance-value");
+const btnAddCargo = document.getElementById("btn-add-cargo");
+const btnAddAbono = document.getElementById("btn-add-abono");
+const movimientosList = document.getElementById("movimientos-list");
+
+const phoneActionsBackdrop = document.getElementById("phone-actions-backdrop");
+const phoneActions = document.getElementById("phone-actions");
+const phoneActionsName = document.getElementById("phone-actions-name");
+const phoneActionCall = document.getElementById("phone-action-call");
+const phoneActionWhatsapp = document.getElementById("phone-action-whatsapp");
+const phoneActionCancel = document.getElementById("phone-action-cancel");
 
 const sheet = document.getElementById("item-sheet");
 const sheetBackdrop = document.getElementById("sheet-backdrop");
@@ -1072,7 +1308,10 @@ function openEdit(a) {
   openSheet();
 }
 
-fabAdd.addEventListener("click", openNew);
+fabAdd.addEventListener("click", () => {
+  if (currentView === "clientes") openNewClient();
+  else openNew();
+});
 sheetClose.addEventListener("click", closeSheet);
 sheetBackdrop.addEventListener("click", closeSheet);
 
@@ -1169,13 +1408,315 @@ deleteBtn.addEventListener("click", async () => {
   }
 });
 
-// ---------- Tabbar (Clientes / Ajustes aún no construidos) ----------
+// ---------- Tabbar (cambia entre Inventario / Clientes) ----------
 document.querySelectorAll(".tab").forEach(tab => {
   tab.addEventListener("click", () => {
-    if (tab.dataset.tab === "inventario") return;
-    showToast("Ese módulo lo construimos en el próximo paso");
+    const target = tab.dataset.tab;
+    if (target === "config") {
+      showToast("Ese módulo lo construimos en el próximo paso");
+      return;
+    }
+    currentView = target;
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === target));
+    viewInventario.style.display = target === "inventario" ? "block" : "none";
+    viewClientes.style.display = target === "clientes" ? "block" : "none";
   });
 });
+
+// ================== CLIENTES ==================
+
+function clientMoney() {} // (sin uso, reservado)
+
+function renderClientes() {
+  const filtered = clientes.filter(c =>
+    c.nombreCompleto?.toLowerCase().includes(clientSearchTerm.toLowerCase())
+  );
+
+  clientCount.textContent = `${clientes.length} cliente${clientes.length === 1 ? "" : "s"}`;
+  clientList.innerHTML = "";
+  clientEmptyState.style.display = clientes.length === 0 ? "block" : "none";
+
+  filtered.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "item-card client-card";
+
+    const photoHtml = c.fotoIdentidadUrl
+      ? `<img class="item-photo" src="${c.fotoIdentidadUrl}" alt="" data-client-photo="${c.fotoIdentidadUrl}">`
+      : `<div class="item-photo placeholder">👤</div>`;
+
+    const balance = Number(c.balance) || 0;
+
+    card.innerHTML = `
+      ${photoHtml}
+      <div class="item-info">
+        <div class="item-name">${escapeHtml(c.nombreCompleto || "")}</div>
+        <div class="item-meta">${c.telefono ? `<span class="client-phone-link" data-phone="${escapeHtml(c.telefono)}" data-name="${escapeHtml(c.nombreCompleto || "")}">${escapeHtml(c.telefono)}</span>` : "Sin teléfono"}</div>
+      </div>
+      ${balance > 0
+        ? `<span class="stock-pill stock-low">Debe ${money(balance)}</span>`
+        : `<span class="stock-pill stock-ok">Al día</span>`
+      }
+    `;
+
+    const photoEl = card.querySelector("[data-client-photo]");
+    if (photoEl) {
+      photoEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openLightboxSingle(photoEl.dataset.clientPhoto, c.nombreCompleto || "");
+      });
+    }
+
+    const phoneEl = card.querySelector("[data-phone]");
+    if (phoneEl) {
+      phoneEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openPhoneActions(phoneEl.dataset.phone, phoneEl.dataset.name);
+      });
+    }
+
+    card.addEventListener("click", () => openEditClient(c));
+    clientList.appendChild(card);
+
+    if (editingClientId === c.id && accountSection.style.display !== "none") {
+      clientBalanceValue.textContent = money(c.balance || 0);
+    }
+  });
+}
+
+function openLightboxSingle(url, caption) {
+  gallery = [{ url, nombre: caption }];
+  openLightbox(0);
+}
+
+const clientesRef = collection(db, "clientes");
+onSnapshot(clientesRef, (snap) => {
+  clientes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  clientes.sort((a, b) => (a.nombreCompleto || "").localeCompare(b.nombreCompleto || ""));
+  renderClientes();
+}, (err) => {
+  console.error(err);
+  showToast("No se pudo conectar a la base de datos");
+});
+
+clientSearchInput.addEventListener("input", (e) => {
+  clientSearchTerm = e.target.value;
+  renderClientes();
+});
+
+clientPhotoPicker.addEventListener("click", () => {}); // el <label> ya abre el selector solo
+clientPhotoInput.addEventListener("change", () => {
+  const file = clientPhotoInput.files[0];
+  if (!file) return;
+  selectedClientFile = file;
+  const url = URL.createObjectURL(file);
+  clientPhotoPreview.src = url;
+  clientPhotoPreview.style.display = "block";
+  clientPhotoPlaceholder.style.display = "none";
+});
+
+function openClientSheet() {
+  clientSheet.classList.add("open");
+  clientSheetBackdrop.classList.add("open");
+}
+function closeClientSheet() {
+  clientSheet.classList.remove("open");
+  clientSheetBackdrop.classList.remove("open");
+  resetClientForm();
+}
+
+function resetClientForm() {
+  editingClientId = null;
+  selectedClientFile = null;
+  inputClienteNombre.value = "";
+  inputClienteTelefono.value = "";
+  inputClienteCorreo.value = "";
+  inputClienteDireccion.value = "";
+  clientPhotoPreview.style.display = "none";
+  clientPhotoPreview.src = "";
+  clientPhotoPlaceholder.style.display = "block";
+  clientDeleteBtn.style.display = "none";
+  clientSheetTitle.textContent = "Nuevo cliente";
+  accountSection.style.display = "none";
+  if (unsubMovimientos) { unsubMovimientos(); unsubMovimientos = null; }
+}
+
+function openNewClient() {
+  resetClientForm();
+  openClientSheet();
+}
+
+function openEditClient(c) {
+  resetClientForm();
+  editingClientId = c.id;
+  inputClienteNombre.value = c.nombreCompleto || "";
+  inputClienteTelefono.value = c.telefono || "";
+  inputClienteCorreo.value = c.correo || "";
+  inputClienteDireccion.value = c.direccion || "";
+  if (c.fotoIdentidadUrl) {
+    clientPhotoPreview.src = c.fotoIdentidadUrl;
+    clientPhotoPreview.style.display = "block";
+    clientPhotoPlaceholder.style.display = "none";
+  }
+  clientSheetTitle.textContent = "Editar cliente";
+  clientDeleteBtn.style.display = "block";
+  accountSection.style.display = "block";
+  clientBalanceValue.textContent = money(c.balance || 0);
+  watchMovimientos(c.id);
+  openClientSheet();
+}
+
+clientSheetClose.addEventListener("click", closeClientSheet);
+clientSheetBackdrop.addEventListener("click", closeClientSheet);
+
+clientSaveBtn.addEventListener("click", async () => {
+  const nombreCompleto = inputClienteNombre.value.trim();
+  if (!nombreCompleto) {
+    showToast("Ponle un nombre al cliente");
+    return;
+  }
+
+  clientSaveBtn.disabled = true;
+  clientSaveBtn.textContent = "Guardando…";
+
+  try {
+    let fotoIdentidadUrl = null;
+    if (selectedClientFile) {
+      fotoIdentidadUrl = await uploadClientPhoto(selectedClientFile);
+    }
+
+    const data = {
+      nombreCompleto,
+      telefono: inputClienteTelefono.value.trim(),
+      correo: inputClienteCorreo.value.trim(),
+      direccion: inputClienteDireccion.value.trim(),
+      actualizado: serverTimestamp(),
+    };
+    if (fotoIdentidadUrl) data.fotoIdentidadUrl = fotoIdentidadUrl;
+
+    if (editingClientId) {
+      await updateDoc(doc(db, "clientes", editingClientId), data);
+      showToast("Cliente actualizado");
+    } else {
+      data.creado = serverTimestamp();
+      await addDoc(clientesRef, data);
+      showToast("Cliente guardado");
+    }
+
+    closeClientSheet();
+  } catch (err) {
+    console.error(err);
+    showToast("Ocurrió un error al guardar");
+  } finally {
+    clientSaveBtn.disabled = false;
+    clientSaveBtn.textContent = "Guardar cliente";
+  }
+});
+
+async function uploadClientPhoto(file) {
+  const compressed = await compressImage(file, 900, 0.75);
+  const path = `clientes/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, compressed);
+  return await getDownloadURL(storageRef);
+}
+
+clientDeleteBtn.addEventListener("click", async () => {
+  if (!editingClientId) return;
+  if (!confirm("¿Eliminar este cliente?")) return;
+  try {
+    await deleteDoc(doc(db, "clientes", editingClientId));
+    showToast("Cliente eliminado");
+    closeClientSheet();
+  } catch (err) {
+    console.error(err);
+    showToast("No se pudo eliminar");
+  }
+});
+
+// ---------- Llamar / WhatsApp ----------
+function openPhoneActions(phone, name) {
+  const digits = (phone || "").replace(/\D/g, "");
+  let waDigits = digits;
+  if (waDigits.length === 10) waDigits = "1" + waDigits; // código de país RD/EE.UU.
+
+  phoneActionsName.textContent = name || phone;
+  phoneActionCall.href = `tel:${digits}`;
+  phoneActionWhatsapp.href = `https://wa.me/${waDigits}`;
+  phoneActions.classList.add("open");
+  phoneActionsBackdrop.classList.add("open");
+}
+function closePhoneActions() {
+  phoneActions.classList.remove("open");
+  phoneActionsBackdrop.classList.remove("open");
+}
+phoneActionCancel.addEventListener("click", closePhoneActions);
+phoneActionsBackdrop.addEventListener("click", closePhoneActions);
+phoneActionCall.addEventListener("click", closePhoneActions);
+phoneActionWhatsapp.addEventListener("click", closePhoneActions);
+
+// ---------- Cuenta del cliente (cargos y abonos) ----------
+let unsubMovimientos = null;
+
+function watchMovimientos(clientId) {
+  if (unsubMovimientos) unsubMovimientos();
+  const movRef = collection(db, "clientes", clientId, "movimientos");
+  const q = query(movRef, orderBy("fecha", "desc"), limit(30));
+  unsubMovimientos = onSnapshot(q, (snap) => {
+    const movs = snap.docs.map(d => d.data());
+    renderMovimientos(movs);
+  });
+}
+
+function renderMovimientos(movs) {
+  if (movs.length === 0) {
+    movimientosList.innerHTML = `<div class="movimientos-empty">Sin movimientos aún</div>`;
+    return;
+  }
+  movimientosList.innerHTML = movs.map(m => {
+    const fecha = m.fecha?.toDate ? m.fecha.toDate() : new Date();
+    const fechaStr = fecha.toLocaleDateString("es-DO", { day: "2-digit", month: "short" });
+    const esCargo = m.tipo === "cargo";
+    return `
+      <div class="movimiento-row">
+        <span class="mv-label">${fechaStr} · ${esCargo ? "Cargo" : "Abono"}${m.nota ? " · " + escapeHtml(m.nota) : ""}</span>
+        <span class="mv-amount ${esCargo ? "cargo" : "abono"}">${esCargo ? "+" : "−"}${money(m.monto)}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+async function registrarMovimiento(tipo) {
+  if (!editingClientId) return;
+  const label = tipo === "cargo" ? "¿Cuánto debe? (nuevo cargo)" : "¿Cuánto abonó?";
+  const montoStr = prompt(label);
+  if (montoStr === null) return;
+  const monto = Number(montoStr.replace(",", "."));
+  if (!monto || monto <= 0) {
+    showToast("Pon un monto válido");
+    return;
+  }
+  const nota = prompt("Nota (opcional)") || "";
+
+  try {
+    const movRef = collection(db, "clientes", editingClientId, "movimientos");
+    await addDoc(movRef, {
+      tipo,
+      monto,
+      nota: nota.trim(),
+      fecha: serverTimestamp(),
+    });
+    await updateDoc(doc(db, "clientes", editingClientId), {
+      balance: increment(tipo === "cargo" ? monto : -monto),
+    });
+    showToast(tipo === "cargo" ? "Cargo registrado" : "Abono registrado");
+  } catch (err) {
+    console.error(err);
+    showToast("No se pudo registrar");
+  }
+}
+
+btnAddCargo.addEventListener("click", () => registrarMovimiento("cargo"));
+btnAddAbono.addEventListener("click", () => registrarMovimiento("abono"));
 
 
 
