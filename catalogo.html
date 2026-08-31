@@ -335,6 +335,30 @@ document.getElementById('vNext').onclick = () => {
   viewerIndex = (viewerIndex + 1) % viewerList.length;
   showViewerItem();
 };
+
+// Deslizar entre fotos (swipe)
+const vimg = document.querySelector('.viewer .vimg');
+let touchStartX = 0, touchStartY = 0, touchMoved = false;
+vimg.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  touchMoved = false;
+}, { passive:true });
+vimg.addEventListener('touchmove', () => { touchMoved = true; }, { passive:true });
+vimg.addEventListener('touchend', e => {
+  if(!touchMoved || viewerList.length < 2) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  // Solo reaccionar a deslizamientos claramente horizontales, para no chocar con el zoom
+  if(Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5){
+    if(dx < 0){
+      viewerIndex = (viewerIndex + 1) % viewerList.length;
+    } else {
+      viewerIndex = (viewerIndex - 1 + viewerList.length) % viewerList.length;
+    }
+    showViewerItem();
+  }
+});
 document.getElementById('vEdit').onclick = () => {
   const p = viewerList[viewerIndex];
   viewer.classList.remove('open');
