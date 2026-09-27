@@ -1021,6 +1021,28 @@ button {
   </div>
 
   <div class="ventas-section">
+    <div class="category-header">Préstamos y financiamientos</div>
+    <div class="stats-grid" style="padding:0 0 10px;">
+      <div class="stat-card danger">
+        <div class="stat-label">Capital en la calle (activo)</div>
+        <div class="stat-value" id="stat-prestamos-capital">RD$0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Préstamos activos</div>
+        <div class="stat-value" id="stat-prestamos-activos">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Atrasados hoy</div>
+        <div class="stat-value" id="stat-prestamos-atrasados">0</div>
+      </div>
+      <div class="stat-card real">
+        <div class="stat-label">Préstamos pagados</div>
+        <div class="stat-value" id="stat-prestamos-pagados">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ventas-section">
     <div class="category-header">Ventas recientes</div>
     <div id="ventas-list" class="movimientos-list ventas-list"></div>
   </div>
@@ -2328,6 +2350,23 @@ function openEditClient(c) {
   inputClienteTipoCuenta.value = c.tipoCuenta || "credito";
   inputClienteTipoCuenta.disabled = true;
   prestamoSetupFields.style.display = "none";
+  const esPrestamo = c.tipoCuenta && c.tipoCuenta !== "credito";
+
+  if (esPrestamo) {
+    prestamoSetupFields.style.display = "block";
+    inputPrestamoCapital.value = c.capitalPrestamo ?? c.saldoCapitalPendiente ?? "";
+    inputPrestamoInicial.value = c.inicial ?? "";
+    inputPrestamoProducto.value = c.productoRecibido || "";
+    inputPrestamoCantPagos.value = c.tipoPlan === "cuotas" ? (c.cantidadPagos ?? "") : "";
+    inputPrestamoMontoPago.value = c.tipoPlan === "cuotas" ? (c.cuotaFija ?? "") : "";
+    inputPrestamoInteres.value = c.tipoPlan === "abierto" ? (c.interesPorcentaje ?? "") : "";
+    inputPrestamoFrecuencia.value = c.frecuencia || "semanal";
+    inputPrestamoFecha.value = c.fechaProximoPago || "";
+    actualizarVistaPrevioPrestamo();
+  } else {
+    prestamoSetupFields.style.display = "none";
+  }
+
   if (c.fotoIdentidadUrl) {
     loadImageOfflineFirst(clientPhotoPreview, c.fotoIdentidadUrl);
     clientPhotoPreview.style.display = "block";
@@ -2337,7 +2376,6 @@ function openEditClient(c) {
   clientDeleteBtn.style.display = "block";
   accountSection.style.display = "block";
 
-  const esPrestamo = c.tipoCuenta && c.tipoCuenta !== "credito";
   if (esPrestamo) {
     creditoBlock.style.display = "none";
     prestamoBlock.style.display = "block";
@@ -2539,6 +2577,26 @@ clientSaveBtn.addEventListener("click", async () => {
     if (capturedLocation) data.ubicacion = capturedLocation;
 
     if (editingClientId) {
+      if (tipoCuenta !== "credito") {
+        const capital = Number(inputPrestamoCapital.value) || 0;
+        const inicial = Number(inputPrestamoInicial.value) || 0;
+        const cantPagos = parseInt(inputPrestamoCantPagos.value) || 0;
+        data.capitalPrestamo = capital;
+        data.inicial = inicial;
+        data.productoRecibido = inputPrestamoProducto.value.trim();
+        data.frecuencia = inputPrestamoFrecuencia.value;
+        data.fechaProximoPago = inputPrestamoFecha.value;
+        if (cantPagos > 0) {
+          const montoPago = Number(inputPrestamoMontoPago.value) || 0;
+          data.tipoPlan = "cuotas";
+          data.cantidadPagos = cantPagos;
+          data.cuotaFija = montoPago;
+          data.capitalPorCuota = capital / cantPagos;
+        } else {
+          data.tipoPlan = "abierto";
+          data.interesPorcentaje = Number(inputPrestamoInteres.value) || 0;
+        }
+      }
       updateDoc(doc(db, "clientes", editingClientId), data).catch((err) => console.error(err));
       showToast("Cliente actualizado");
     } else {
@@ -2710,6 +2768,12 @@ function renderContabilidad() {
   }, 0);
   const gananciaReal = ventas.reduce((sum, v) => sum + (Number(v.gananciaTotal) || 0), 0);
 
+  const prestamosClientes = clientes.filter(c => c.tipoCuenta && c.tipoCuenta !== "credito");
+  const prestamosActivos = prestamosClientes.filter(c => c.estadoPrestamo !== "pagado");
+  const prestamosPagados = prestamosClientes.filter(c => c.estadoPrestamo === "pagado");
+  const capitalPrestamos = prestamosActivos.reduce((sum, c) => sum + (Number(c.saldoCapitalPendiente) || 0), 0);
+  const prestamosAtrasados = prestamosActivos.filter(c => c.fechaProximoPago && calcularEstadoFechaPrestamo(c.fechaProximoPago) === "atrasado");
+
   document.getElementById("stat-costo").textContent = money(totalCosto);
   document.getElementById("stat-venta").textContent = money(totalVenta);
   document.getElementById("stat-ganancia").textContent = money(totalVenta - totalCosto);
@@ -2718,6 +2782,10 @@ function renderContabilidad() {
   document.getElementById("stat-articulos").textContent = articulos.length;
   document.getElementById("stat-stock-bajo").textContent = stockBajo;
   document.getElementById("stat-ventas-count").textContent = ventas.length;
+  document.getElementById("stat-prestamos-capital").textContent = money(capitalPrestamos);
+  document.getElementById("stat-prestamos-activos").textContent = prestamosActivos.length;
+  document.getElementById("stat-prestamos-atrasados").textContent = prestamosAtrasados.length;
+  document.getElementById("stat-prestamos-pagados").textContent = prestamosPagados.length;
 }
 
 // ---------- Ubicación del cliente ----------
