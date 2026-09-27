@@ -1146,6 +1146,11 @@ button {
   </div>
 
   <div class="field">
+    <label for="input-cliente-nota">Nota</label>
+    <input id="input-cliente-nota" type="text" placeholder="Ej: dejó un teléfono como garantía">
+  </div>
+
+  <div class="field">
     <label for="input-cliente-tipo-cuenta">Tipo de cuenta</label>
     <select id="input-cliente-tipo-cuenta">
       <option value="credito">Crédito (mercancía)</option>
@@ -1158,6 +1163,14 @@ button {
     <div class="field">
       <label for="input-prestamo-capital">Capital</label>
       <input id="input-prestamo-capital" class="mono" type="number" inputmode="decimal" placeholder="0.00">
+    </div>
+    <div class="field">
+      <label for="input-prestamo-inicial">Inicial (opcional)</label>
+      <input id="input-prestamo-inicial" class="mono" type="number" inputmode="decimal" placeholder="0.00">
+    </div>
+    <div class="field">
+      <label for="input-prestamo-producto">¿Recibiste un producto? (opcional)</label>
+      <input id="input-prestamo-producto" type="text" placeholder="Ej: Laptop HP, cadena de oro...">
     </div>
     <div class="field">
       <label for="input-prestamo-cant-pagos">Cantidad de pagos (opcional)</label>
@@ -1327,10 +1340,13 @@ const inputClienteNombre = document.getElementById("input-cliente-nombre");
 const inputClienteTelefono = document.getElementById("input-cliente-telefono");
 const inputClienteCorreo = document.getElementById("input-cliente-correo");
 const inputClienteDireccion = document.getElementById("input-cliente-direccion");
+const inputClienteNota = document.getElementById("input-cliente-nota");
 const inputClienteTipoCuenta = document.getElementById("input-cliente-tipo-cuenta");
 
 const prestamoSetupFields = document.getElementById("prestamo-setup-fields");
 const inputPrestamoCapital = document.getElementById("input-prestamo-capital");
+const inputPrestamoInicial = document.getElementById("input-prestamo-inicial");
+const inputPrestamoProducto = document.getElementById("input-prestamo-producto");
 const inputPrestamoCantPagos = document.getElementById("input-prestamo-cant-pagos");
 const campoMontoPorPago = document.getElementById("campo-monto-por-pago");
 const inputPrestamoMontoPago = document.getElementById("input-prestamo-monto-pago");
@@ -2268,10 +2284,13 @@ function resetClientForm() {
   inputClienteTelefono.value = "";
   inputClienteCorreo.value = "";
   inputClienteDireccion.value = "";
+  inputClienteNota.value = "";
   inputClienteTipoCuenta.value = "credito";
   inputClienteTipoCuenta.disabled = false;
   prestamoSetupFields.style.display = "none";
   inputPrestamoCapital.value = "";
+  inputPrestamoInicial.value = "";
+  inputPrestamoProducto.value = "";
   inputPrestamoCantPagos.value = "";
   inputPrestamoMontoPago.value = "";
   inputPrestamoInteres.value = "";
@@ -2305,6 +2324,7 @@ function openEditClient(c) {
   inputClienteTelefono.value = c.telefono || "";
   inputClienteCorreo.value = c.correo || "";
   inputClienteDireccion.value = c.direccion || "";
+  inputClienteNota.value = c.nota || "";
   inputClienteTipoCuenta.value = c.tipoCuenta || "credito";
   inputClienteTipoCuenta.disabled = true;
   prestamoSetupFields.style.display = "none";
@@ -2341,8 +2361,12 @@ function renderPrestamoBlock(c) {
   const saldo = Number(c.saldoCapitalPendiente) || 0;
   prestamoBalanceValue.textContent = money(saldo);
 
+  const extraInfo = (c.productoRecibido || Number(c.inicial) > 0)
+    ? `${c.productoRecibido ? "Producto recibido: <strong>" + escapeHtml(c.productoRecibido) + "</strong><br>" : ""}${Number(c.inicial) > 0 ? "Inicial pagada: <strong>" + money(c.inicial) + "</strong><br>" : ""}`
+    : "";
+
   if (c.estadoPrestamo === "pagado") {
-    prestamoInfoText.innerHTML = `<span class="prestamo-badge pagado">Pagado</span>`;
+    prestamoInfoText.innerHTML = extraInfo + `<span class="prestamo-badge pagado">Pagado</span>`;
     btnPagarCuotaCliente.style.display = "none";
     btnPagarInteresCliente.style.display = "none";
     btnAbonarCapitalCliente.style.display = "none";
@@ -2364,7 +2388,7 @@ function renderPrestamoBlock(c) {
     const periodosAPagar = Math.min(periodos, cuotasRestantes);
     const montoCuota = periodosAPagar * (Number(c.cuotaFija) || 0);
 
-    prestamoInfoText.innerHTML = `
+    prestamoInfoText.innerHTML = extraInfo + `
       Cuota <strong>${c.cuotasPagadas || 0} de ${c.cantidadPagos}</strong> · ${money(c.cuotaFija || 0)} ${NOMBRES_FRECUENCIA[c.frecuencia] || c.frecuencia}<br>
       Cuota a pagar ahora: <strong>${money(montoCuota)}</strong><br>
       Próximo pago: <strong>${c.fechaProximoPago}</strong><br>
@@ -2377,7 +2401,7 @@ function renderPrestamoBlock(c) {
 
     const interesPeriodo = periodos * (saldo * (Number(c.interesPorcentaje) || 0) / 100);
 
-    prestamoInfoText.innerHTML = `
+    prestamoInfoText.innerHTML = extraInfo + `
       <strong>${c.interesPorcentaje || 0}%</strong> ${NOMBRES_FRECUENCIA[c.frecuencia] || c.frecuencia}<br>
       Interés a pagar ahora: <strong>${money(interesPeriodo)}</strong><br>
       Próximo pago: <strong>${c.fechaProximoPago}</strong><br>
@@ -2508,6 +2532,7 @@ clientSaveBtn.addEventListener("click", async () => {
       telefono: inputClienteTelefono.value.trim(),
       correo: inputClienteCorreo.value.trim(),
       direccion: inputClienteDireccion.value.trim(),
+      nota: inputClienteNota.value.trim(),
       actualizado: serverTimestamp(),
     };
     if (fotoIdentidadUrl) data.fotoIdentidadUrl = fotoIdentidadUrl;
@@ -2523,8 +2548,11 @@ clientSaveBtn.addEventListener("click", async () => {
         data.balance = 0;
       } else {
         const capital = Number(inputPrestamoCapital.value) || 0;
+        const inicial = Number(inputPrestamoInicial.value) || 0;
         const cantPagos = parseInt(inputPrestamoCantPagos.value) || 0;
         data.capitalPrestamo = capital;
+        data.inicial = inicial;
+        data.productoRecibido = inputPrestamoProducto.value.trim();
         data.frecuencia = inputPrestamoFrecuencia.value;
         data.fechaProximoPago = inputPrestamoFecha.value;
         data.estadoPrestamo = "activo";
@@ -2535,11 +2563,11 @@ clientSaveBtn.addEventListener("click", async () => {
           data.cuotasPagadas = 0;
           data.cuotaFija = montoPago;
           data.capitalPorCuota = capital / cantPagos;
-          data.saldoCapitalPendiente = capital;
+          data.saldoCapitalPendiente = Math.max(0, capital - inicial);
         } else {
           data.tipoPlan = "abierto";
           data.interesPorcentaje = Number(inputPrestamoInteres.value) || 0;
-          data.saldoCapitalPendiente = capital;
+          data.saldoCapitalPendiente = Math.max(0, capital - inicial);
         }
       }
       addDoc(clientesRef, data).catch((err) => console.error(err));
