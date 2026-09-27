@@ -1155,15 +1155,21 @@ button {
   </div>
 
   <div id="prestamo-setup-fields" style="display:none;">
-    <div class="field-row">
-      <div class="field">
-        <label for="input-prestamo-capital">Capital</label>
-        <input id="input-prestamo-capital" class="mono" type="number" inputmode="decimal" placeholder="0.00">
-      </div>
-      <div class="field">
-        <label for="input-prestamo-interes">% interés por período</label>
-        <input id="input-prestamo-interes" class="mono" type="number" inputmode="decimal" placeholder="0">
-      </div>
+    <div class="field">
+      <label for="input-prestamo-capital">Capital</label>
+      <input id="input-prestamo-capital" class="mono" type="number" inputmode="decimal" placeholder="0.00">
+    </div>
+    <div class="field">
+      <label for="input-prestamo-cant-pagos">Cantidad de pagos (opcional)</label>
+      <input id="input-prestamo-cant-pagos" class="mono" type="number" inputmode="numeric" placeholder="Sin plazo fijo">
+    </div>
+    <div class="field" id="campo-monto-por-pago" style="display:none;">
+      <label for="input-prestamo-monto-pago">Monto de cada pago (ya con interés incluido)</label>
+      <input id="input-prestamo-monto-pago" class="mono" type="number" inputmode="decimal" placeholder="0.00">
+    </div>
+    <div class="field" id="campo-interes-porcentaje">
+      <label for="input-prestamo-interes">% interés por período</label>
+      <input id="input-prestamo-interes" class="mono" type="number" inputmode="decimal" placeholder="0">
     </div>
     <div class="field">
       <label for="input-prestamo-frecuencia">Frecuencia de pago</label>
@@ -1177,6 +1183,7 @@ button {
       <label for="input-prestamo-fecha">Fecha del primer pago</label>
       <input id="input-prestamo-fecha" type="date">
     </div>
+    <div class="prestamo-info" id="prestamo-setup-preview"></div>
   </div>
 
   <div class="field">
@@ -1206,6 +1213,7 @@ button {
       </div>
       <div class="prestamo-info" id="prestamo-info-text"></div>
       <div class="account-actions">
+        <button class="account-btn abono" id="btn-pagar-cuota-cliente" style="display:none;">Pagar cuota</button>
         <button class="account-btn abono" id="btn-pagar-interes-cliente">Pagar interés</button>
         <button class="account-btn debe" id="btn-abonar-capital-cliente">Abonar capital</button>
       </div>
@@ -1323,9 +1331,15 @@ const inputClienteTipoCuenta = document.getElementById("input-cliente-tipo-cuent
 
 const prestamoSetupFields = document.getElementById("prestamo-setup-fields");
 const inputPrestamoCapital = document.getElementById("input-prestamo-capital");
+const inputPrestamoCantPagos = document.getElementById("input-prestamo-cant-pagos");
+const campoMontoPorPago = document.getElementById("campo-monto-por-pago");
+const inputPrestamoMontoPago = document.getElementById("input-prestamo-monto-pago");
+const campoInteresPorcentaje = document.getElementById("campo-interes-porcentaje");
 const inputPrestamoInteres = document.getElementById("input-prestamo-interes");
 const inputPrestamoFrecuencia = document.getElementById("input-prestamo-frecuencia");
 const inputPrestamoFecha = document.getElementById("input-prestamo-fecha");
+const prestamoSetupPreview = document.getElementById("prestamo-setup-preview");
+const btnPagarCuotaCliente = document.getElementById("btn-pagar-cuota-cliente");
 
 const clientSaveBtn = document.getElementById("client-save-btn");
 const clientDeleteBtn = document.getElementById("client-delete-btn");
@@ -2093,6 +2107,45 @@ document.querySelectorAll(".tab").forEach(tab => {
 inputClienteTipoCuenta.addEventListener("change", () => {
   const esPrestamo = inputClienteTipoCuenta.value !== "credito";
   prestamoSetupFields.style.display = (esPrestamo && !editingClientId) ? "block" : "none";
+  actualizarVistaPrevioPrestamo();
+});
+
+function actualizarVistaPrevioPrestamo() {
+  const cantPagos = parseInt(inputPrestamoCantPagos.value) || 0;
+  const tieneCuotas = cantPagos > 0;
+
+  campoMontoPorPago.style.display = tieneCuotas ? "block" : "none";
+  campoInteresPorcentaje.style.display = tieneCuotas ? "none" : "block";
+
+  const capital = Number(inputPrestamoCapital.value) || 0;
+
+  if (tieneCuotas) {
+    const montoPago = Number(inputPrestamoMontoPago.value) || 0;
+    if (!capital || !montoPago) {
+      prestamoSetupPreview.textContent = "";
+      return;
+    }
+    const totalDeuda = montoPago * cantPagos;
+    const interesTotal = totalDeuda - capital;
+    prestamoSetupPreview.innerHTML =
+      `Total a pagar: <strong>${money(totalDeuda)}</strong><br>` +
+      `Interés total: <strong>${money(interesTotal)}</strong><br>` +
+      `Plan: <strong>${cantPagos} pagos de ${money(montoPago)}</strong>`;
+  } else {
+    const interes = Number(inputPrestamoInteres.value) || 0;
+    if (!capital) {
+      prestamoSetupPreview.textContent = "";
+      return;
+    }
+    const interesPeriodo = capital * interes / 100;
+    prestamoSetupPreview.innerHTML =
+      `Sin plazo fijo. Interés por período: <strong>${money(interesPeriodo)}</strong><br>` +
+      `El capital se abona cuando quiera.`;
+  }
+}
+
+[inputPrestamoCapital, inputPrestamoCantPagos, inputPrestamoMontoPago, inputPrestamoInteres].forEach(el => {
+  el.addEventListener("input", actualizarVistaPrevioPrestamo);
 });
 
 function renderClientes() {
@@ -2219,9 +2272,14 @@ function resetClientForm() {
   inputClienteTipoCuenta.disabled = false;
   prestamoSetupFields.style.display = "none";
   inputPrestamoCapital.value = "";
+  inputPrestamoCantPagos.value = "";
+  inputPrestamoMontoPago.value = "";
   inputPrestamoInteres.value = "";
   inputPrestamoFrecuencia.value = "semanal";
   inputPrestamoFecha.value = "";
+  campoMontoPorPago.style.display = "none";
+  campoInteresPorcentaje.style.display = "block";
+  prestamoSetupPreview.textContent = "";
   clientPhotoPreview.style.display = "none";
   clientPhotoPreview.src = "";
   clientPhotoPlaceholder.style.display = "block";
@@ -2285,27 +2343,79 @@ function renderPrestamoBlock(c) {
 
   if (c.estadoPrestamo === "pagado") {
     prestamoInfoText.innerHTML = `<span class="prestamo-badge pagado">Pagado</span>`;
+    btnPagarCuotaCliente.style.display = "none";
     btnPagarInteresCliente.style.display = "none";
     btnAbonarCapitalCliente.style.display = "none";
     return;
   }
 
-  btnPagarInteresCliente.style.display = "block";
-  btnAbonarCapitalCliente.style.display = "block";
-
+  const esCuotas = c.tipoPlan === "cuotas";
   const periodos = calcularPeriodosPendientesPrestamo(c.fechaProximoPago, c.frecuencia);
-  const interesPeriodo = periodos * (saldo * (Number(c.interesPorcentaje) || 0) / 100);
   const estado = calcularEstadoFechaPrestamo(c.fechaProximoPago);
   const badgeClass = estado === "atrasado" ? "atrasado" : (estado === "hoy" ? "hoy" : "aldia");
   const badgeTexto = estado === "atrasado" ? "Atrasado" : (estado === "hoy" ? "Vence hoy" : "Al día");
 
-  prestamoInfoText.innerHTML = `
-    <strong>${c.interesPorcentaje || 0}%</strong> ${NOMBRES_FRECUENCIA[c.frecuencia] || c.frecuencia}<br>
-    Interés a pagar ahora: <strong>${money(interesPeriodo)}</strong><br>
-    Próximo pago: <strong>${c.fechaProximoPago}</strong><br>
-    <span class="prestamo-badge ${badgeClass}">${badgeTexto}${periodos > 1 ? " · " + periodos + " períodos acumulados" : ""}</span>
-  `;
+  if (esCuotas) {
+    btnPagarCuotaCliente.style.display = "block";
+    btnPagarInteresCliente.style.display = "none";
+    btnAbonarCapitalCliente.style.display = "none";
+
+    const cuotasRestantes = (Number(c.cantidadPagos) || 0) - (Number(c.cuotasPagadas) || 0);
+    const periodosAPagar = Math.min(periodos, cuotasRestantes);
+    const montoCuota = periodosAPagar * (Number(c.cuotaFija) || 0);
+
+    prestamoInfoText.innerHTML = `
+      Cuota <strong>${c.cuotasPagadas || 0} de ${c.cantidadPagos}</strong> · ${money(c.cuotaFija || 0)} ${NOMBRES_FRECUENCIA[c.frecuencia] || c.frecuencia}<br>
+      Cuota a pagar ahora: <strong>${money(montoCuota)}</strong><br>
+      Próximo pago: <strong>${c.fechaProximoPago}</strong><br>
+      <span class="prestamo-badge ${badgeClass}">${badgeTexto}${periodos > 1 ? " · " + periodos + " períodos acumulados" : ""}</span>
+    `;
+  } else {
+    btnPagarCuotaCliente.style.display = "none";
+    btnPagarInteresCliente.style.display = "block";
+    btnAbonarCapitalCliente.style.display = "block";
+
+    const interesPeriodo = periodos * (saldo * (Number(c.interesPorcentaje) || 0) / 100);
+
+    prestamoInfoText.innerHTML = `
+      <strong>${c.interesPorcentaje || 0}%</strong> ${NOMBRES_FRECUENCIA[c.frecuencia] || c.frecuencia}<br>
+      Interés a pagar ahora: <strong>${money(interesPeriodo)}</strong><br>
+      Próximo pago: <strong>${c.fechaProximoPago}</strong><br>
+      <span class="prestamo-badge ${badgeClass}">${badgeTexto}${periodos > 1 ? " · " + periodos + " períodos acumulados" : ""}</span>
+    `;
+  }
 }
+
+btnPagarCuotaCliente.addEventListener("click", async () => {
+  if (!editingClientId) return;
+  const c = clientes.find(x => x.id === editingClientId);
+  if (!c) return;
+  const cuotasRestantes = (Number(c.cantidadPagos) || 0) - (Number(c.cuotasPagadas) || 0);
+  const periodos = Math.min(calcularPeriodosPendientesPrestamo(c.fechaProximoPago, c.frecuencia), cuotasRestantes);
+  if (periodos <= 0) return;
+  const cuotaFija = Number(c.cuotaFija) || 0;
+  const capitalPorCuota = Number(c.capitalPorCuota) || 0;
+  const montoTotal = periodos * cuotaFija;
+  const montoCapital = periodos * capitalPorCuota;
+  const aviso = periodos > 1 ? ` (${periodos} cuotas)` : "";
+  if (!confirm(`¿Confirmar pago de cuota${aviso} de ${money(montoTotal)}?`)) return;
+  try {
+    const nuevasCuotasPagadas = (Number(c.cuotasPagadas) || 0) + periodos;
+    const nuevoSaldo = Math.max(0, (Number(c.saldoCapitalPendiente) || 0) - montoCapital);
+    const nuevaFecha = avanzarFechaPrestamo(c.fechaProximoPago, c.frecuencia, periodos);
+    const pagoCompleto = nuevasCuotasPagadas >= (Number(c.cantidadPagos) || 0);
+    await updateDoc(doc(db, "clientes", editingClientId), {
+      cuotasPagadas: nuevasCuotasPagadas,
+      saldoCapitalPendiente: nuevoSaldo,
+      fechaProximoPago: nuevaFecha,
+      estadoPrestamo: pagoCompleto ? "pagado" : "activo",
+    });
+    showToast("Cuota registrada");
+  } catch (err) {
+    console.error(err);
+    showToast("No se pudo registrar el pago");
+  }
+});
 
 btnPagarInteresCliente.addEventListener("click", async () => {
   if (!editingClientId) return;
@@ -2373,8 +2483,13 @@ clientSaveBtn.addEventListener("click", async () => {
   if (esNuevoPrestamo) {
     const capital = Number(inputPrestamoCapital.value) || 0;
     const fecha = inputPrestamoFecha.value;
+    const cantPagos = parseInt(inputPrestamoCantPagos.value) || 0;
     if (!capital || !fecha) {
       showToast("Completa el capital y la fecha del primer pago");
+      return;
+    }
+    if (cantPagos > 0 && !Number(inputPrestamoMontoPago.value)) {
+      showToast("Pon el monto de cada pago");
       return;
     }
   }
@@ -2408,12 +2523,24 @@ clientSaveBtn.addEventListener("click", async () => {
         data.balance = 0;
       } else {
         const capital = Number(inputPrestamoCapital.value) || 0;
+        const cantPagos = parseInt(inputPrestamoCantPagos.value) || 0;
         data.capitalPrestamo = capital;
-        data.saldoCapitalPendiente = capital;
-        data.interesPorcentaje = Number(inputPrestamoInteres.value) || 0;
         data.frecuencia = inputPrestamoFrecuencia.value;
         data.fechaProximoPago = inputPrestamoFecha.value;
         data.estadoPrestamo = "activo";
+        if (cantPagos > 0) {
+          const montoPago = Number(inputPrestamoMontoPago.value) || 0;
+          data.tipoPlan = "cuotas";
+          data.cantidadPagos = cantPagos;
+          data.cuotasPagadas = 0;
+          data.cuotaFija = montoPago;
+          data.capitalPorCuota = capital / cantPagos;
+          data.saldoCapitalPendiente = capital;
+        } else {
+          data.tipoPlan = "abierto";
+          data.interesPorcentaje = Number(inputPrestamoInteres.value) || 0;
+          data.saldoCapitalPendiente = capital;
+        }
       }
       addDoc(clientesRef, data).catch((err) => console.error(err));
       showToast("Cliente guardado");
