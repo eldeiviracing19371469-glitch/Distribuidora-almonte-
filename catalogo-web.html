@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Catálogo — Distribuidora Almonte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F5F0;
+    --surface: #FFFFFF;
+    --surface-2: #EFEBE2;
+    --text: #1B2029;
+    --text-muted: #6B7280;
+    --border: #E4DFD3;
+    --amber: #C97F1E;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151C;
+      --surface: #1B2029;
+      --surface-2: #242B37;
+      --text: #F2F4F7;
+      --text-muted: #8A93A3;
+      --border: #2C3341;
+      --amber: #F2A93B;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--text);
+    font-family: "Inter", system-ui, sans-serif;
+  }
+  header {
+    padding: 24px 20px 14px;
+    text-align: center;
+  }
+  header h1 {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 22px;
+    margin: 0 0 4px;
+  }
+  header .sub {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .search-wrap { padding: 0 20px 16px; }
+  .search-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 15px;
+  }
+  .category-header {
+    padding: 18px 20px 8px;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    padding: 0 20px;
+  }
+  @media (min-width: 600px) {
+    .grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (min-width: 900px) {
+    .grid { grid-template-columns: repeat(4, 1fr); }
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .card img {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    display: block;
+    background: var(--surface-2);
+  }
+  .card .ph {
+    width: 100%;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    background: var(--surface-2);
+  }
+  .card .info { padding: 10px 12px 14px; }
+  .card .name {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .card .price {
+    font-family: ui-monospace, monospace;
+    font-weight: 700;
+    color: var(--amber);
+    font-size: 15px;
+  }
+  .empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 60px 20px;
+    font-size: 14px;
+  }
+  footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 30px 20px 40px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Distribuidora Almonte</h1>
+  <div class="sub">Catálogo de artículos</div>
+</header>
+
+<div class="search-wrap">
+  <input id="search-input" class="search-input" type="search" placeholder="Buscar artículo…">
+</div>
+
+<div id="catalog"></div>
+<div id="empty-state" class="empty" style="display:none;">Aún no hay artículos disponibles.</div>
+
+<footer>Precios sujetos a cambio sin previo aviso.</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCFZyY418EXYEDTZiY_HS71dWmCytczBOw",
+  authDomain: "distribuidora-almonte.firebaseapp.com",
+  projectId: "distribuidora-almonte",
+  storageBucket: "distribuidora-almonte.firebasestorage.app",
+  messagingSenderId: "664241923704",
+  appId: "1:664241923704:web:be72ee04fd1cff73836f8d"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let articulos = [];
+let searchTerm = "";
+
+function money(n) {
+  return "RD$" + (Number(n) || 0).toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function computeSalePrice(costo, margen) {
+  const c = Number(costo) || 0;
+  const m = Number(margen) || 0;
+  return c * (1 + m / 100);
+}
+
+function getFotos(a) {
+  if (a.fotos && a.fotos.length) return a.fotos;
+  if (a.fotoUrl) return [a.fotoUrl];
+  return [];
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+function render() {
+  const catalog = document.getElementById("catalog");
+  const emptyState = document.getElementById("empty-state");
+  const filtered = articulos.filter(a =>
+    (a.nombre || "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  catalog.innerHTML = "";
+  emptyState.style.display = articulos.length === 0 ? "block" : "none";
+
+  const groups = new Map();
+  filtered.forEach(a => {
+    const cat = (a.categoria || "").trim() || "Otros";
+    if (!groups.has(cat)) groups.set(cat, []);
+    groups.get(cat).push(a);
+  });
+
+  const sortedCats = [...groups.keys()].sort((x, y) => {
+    if (x === "Otros") return 1;
+    if (y === "Otros") return -1;
+    return x.localeCompare(y);
+  });
+
+  sortedCats.forEach(cat => {
+    const header = document.createElement("div");
+    header.className = "category-header";
+    header.textContent = cat;
+    catalog.appendChild(header);
+
+    const grid = document.createElement("div");
+    grid.className = "grid";
+
+    groups.get(cat).forEach(a => {
+      const precio = computeSalePrice(a.precioEntrada, a.porcentajeGanancia);
+      const foto = getFotos(a)[0];
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        ${foto ? `<img src="${foto}" alt="" loading="lazy">` : `<div class="ph">🏷️</div>`}
+        <div class="info">
+          <div class="name">${escapeHtml(a.nombre)}</div>
+          <div class="price">${money(precio)}</div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    catalog.appendChild(grid);
+  });
+}
+
+const articulosRef = collection(db, "articulos");
+onSnapshot(articulosRef, (snap) => {
+  articulos = snap.docs.map(d => d.data());
+  articulos.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+  render();
+});
+
+document.getElementById("search-input").addEventListener("input", (e) => {
+  searchTerm = e.target.value;
+  render();
+});
+</script>
+
+</body>
+</html>
