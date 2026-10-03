@@ -46,6 +46,14 @@
     font-family: "Inter", system-ui, sans-serif;
   }
   body { padding-bottom: 90px; }
+  .logo-img {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 8px;
+    display: block;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
   header {
     padding: 24px 20px 14px;
     text-align: center;
@@ -96,13 +104,38 @@
     border-radius: 18px;
     overflow: hidden;
   }
-  .card img {
+  .card .photos {
+    position: relative;
     width: 100%;
     height: 140px;
-    object-fit: cover;
-    display: block;
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
     background: var(--surface-2);
   }
+  .card .photos::-webkit-scrollbar { display: none; }
+  .card .photos img {
+    width: 100%;
+    height: 140px;
+    flex-shrink: 0;
+    object-fit: cover;
+    scroll-snap-align: start;
+    cursor: pointer;
+  }
+  .card .dots {
+    position: absolute;
+    bottom: 6px; left: 0; right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    pointer-events: none;
+  }
+  .card .dots span {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.55);
+  }
+  .card .dots span.active { background: #fff; }
   .card .ph {
     width: 100%;
     height: 140px;
@@ -136,7 +169,6 @@
     font-size: 12px;
     padding: 30px 20px 40px;
   }
-  .card img { cursor: pointer; }
 
   .lightbox {
     position: fixed;
@@ -222,13 +254,6 @@
     box-shadow: 0 8px 22px rgba(0,0,0,0.25);
     z-index: 30;
     white-space: nowrap;
-  }  .logo-img {
-    width: 64px; height: 64px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin: 0 auto 8px;
-    display: block;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   }
 </style>
 </head>
@@ -311,7 +336,6 @@ function render() {
 
   catalog.innerHTML = "";
   emptyState.style.display = articulos.length === 0 ? "block" : "none";
-  gallery = [];
 
   const groups = new Map();
   filtered.forEach(a => {
@@ -337,27 +361,48 @@ function render() {
 
     groups.get(cat).forEach(a => {
       const precio = computeSalePrice(a.precioEntrada, a.porcentajeGanancia);
-      const foto = getFotos(a)[0];
+      const fotos = getFotos(a);
       const card = document.createElement("div");
       card.className = "card";
 
-      let galleryIndexAttr = "";
-      if (foto) {
-        galleryIndexAttr = gallery.length;
-        gallery.push({ url: foto, nombre: a.nombre || "", precio });
-      }
+      if (fotos.length === 0) {
+        card.innerHTML = `
+          <div class="ph">🏷️</div>
+          <div class="info">
+            <div class="name">${escapeHtml(a.nombre)}</div>
+            <div class="price">${money(precio)}</div>
+          </div>
+        `;
+      } else {
+        const imgsHtml = fotos.map((url, i) =>
+          `<img src="${url}" alt="" loading="lazy" data-idx="${i}">`
+        ).join("");
+        const dotsHtml = fotos.length > 1
+          ? `<div class="dots">${fotos.map((_, i) => `<span class="${i === 0 ? "active" : ""}"></span>`).join("")}</div>`
+          : "";
+        card.innerHTML = `
+          <div class="photos">${imgsHtml}${dotsHtml}</div>
+          <div class="info">
+            <div class="name">${escapeHtml(a.nombre)}</div>
+            <div class="price">${money(precio)}</div>
+          </div>
+        `;
 
-      card.innerHTML = `
-        ${foto ? `<img src="${foto}" alt="" loading="lazy" data-gallery-index="${galleryIndexAttr}">` : `<div class="ph">🏷️</div>`}
-        <div class="info">
-          <div class="name">${escapeHtml(a.nombre)}</div>
-          <div class="price">${money(precio)}</div>
-        </div>
-      `;
+        const photosEl = card.querySelector(".photos");
+        const dots = card.querySelectorAll(".dots span");
 
-      const img = card.querySelector("[data-gallery-index]");
-      if (img) {
-        img.addEventListener("click", () => openLightbox(Number(img.dataset.galleryIndex)));
+        if (fotos.length > 1) {
+          photosEl.addEventListener("scroll", () => {
+            const idx = Math.round(photosEl.scrollLeft / photosEl.clientWidth);
+            dots.forEach((d, i) => d.classList.toggle("active", i === idx));
+          });
+        }
+
+        photosEl.querySelectorAll("img").forEach(img => {
+          img.addEventListener("click", () => {
+            openLightbox(fotos, Number(img.dataset.idx), a.nombre || "", precio);
+          });
+        });
       }
 
       grid.appendChild(card);
@@ -367,9 +412,11 @@ function render() {
   });
 }
 
-// ---------- Visor de fotos (deslizable) ----------
+// ---------- Visor de fotos (deslizable, por artículo) ----------
 let gallery = [];
 let galleryIndex = 0;
+let galleryNombre = "";
+let galleryPrecio = 0;
 const lightbox = document.getElementById("lightbox");
 const lightboxImg = document.getElementById("lightbox-img");
 const lightboxCaption = document.getElementById("lightbox-caption");
@@ -379,20 +426,22 @@ const lightboxNext = document.getElementById("lightbox-next");
 const whatsappFab = document.getElementById("whatsapp-fab");
 const whatsappGenerico = "https://wa.me/18294367015?text=Hola%2C%20quiero%20hacer%20un%20pedido";
 
-function openLightbox(index) {
-  if (index < 0 || !gallery[index]) return;
+function openLightbox(fotos, index, nombre, precio) {
+  gallery = fotos;
   galleryIndex = index;
+  galleryNombre = nombre;
+  galleryPrecio = precio;
   showLightboxImage();
   lightbox.classList.add("open");
 }
 function showLightboxImage() {
-  const item = gallery[galleryIndex];
-  if (!item) return;
-  lightboxImg.src = item.url;
-  lightboxCaption.innerHTML = `${escapeHtml(item.nombre)}<span class="lc-price">${money(item.precio)}</span>`;
+  const url = gallery[galleryIndex];
+  if (!url) return;
+  lightboxImg.src = url;
+  lightboxCaption.innerHTML = `${escapeHtml(galleryNombre)}<span class="lc-price">${money(galleryPrecio)}</span>`;
   lightboxPrev.style.visibility = gallery.length > 1 ? "visible" : "hidden";
   lightboxNext.style.visibility = gallery.length > 1 ? "visible" : "hidden";
-  const mensaje = encodeURIComponent(`Hola, quiero hacer un pedido de: ${item.nombre}`);
+  const mensaje = encodeURIComponent(`Hola, quiero hacer un pedido de: ${galleryNombre}`);
   whatsappFab.href = `https://wa.me/18294367015?text=${mensaje}`;
 }
 function lightboxGoPrev() {
